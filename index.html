@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Sella - Total Collapse Archive</title>
+<title>archive - Total Collapse</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
   :root {
@@ -26,21 +26,23 @@
   .physics-letter {
     display: inline-block; position: relative; 
     transition: filter 0.1s, transform 0.05s linear;
-    transform-origin: center center; transform: translateZ(0); 
+    transform-origin: center center; 
+    /* 하드웨어 가속(GPU) 강제 할당으로 렌더링 최적화 */
+    transform: translateZ(0); 
+    will-change: transform, filter; 
   }
 
   .falling { transition: filter 0.1s, transform 0.05s linear; }
 
-  /* 💡 수정됨: 물리 엔진과 스크롤이 완벽하게 호환되도록 flex 레이아웃으로 변경 */
   .container {
     display: flex; min-height: 100vh; position: relative; z-index: 10;
-    align-items: flex-start; /* 사이드바가 sticky로 작동하도록 설정 */
+    align-items: flex-start; 
   }
 
   /* --- 데스크탑 레이아웃 --- */
   header.sidebar {
     width: 250px; padding: 40px; 
-    position: sticky; top: 0; /* fixed에서 sticky로 변경 (물리 추락 시 버그 방지) */
+    position: sticky; top: 0; 
     height: 100vh; box-sizing: border-box; flex-shrink: 0;
     display: flex; flex-direction: column; justify-content: space-between;
   }
@@ -49,11 +51,9 @@
   
   nav ul { list-style: none; padding: 0; margin: 0; }
   nav li { margin-bottom: 1rem; }
-  /* 메뉴 탭의 기본 스타일 유지 */
   nav a { text-decoration: none; color: #888; font-size: 0.95rem; transition: color 0.2s; display: inline-block; }
   nav a:hover, nav a.active { color: var(--text-color); }
 
-  /* 💡 수정됨: 사이드바가 flex 아이템이 되었으므로 margin-left 제거 */
   main.content {
     flex-grow: 1; padding: 80px 10vw 120px 40px; max-width: 1200px; box-sizing: border-box;
   }
@@ -85,7 +85,7 @@
 <svg width="0" height="0" style="position: absolute;">
   <defs id="filter-defs">
     <filter id="distortionFilter">
-      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" result="noise" class="turb" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="1" result="noise" />
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" class="displace" />
     </filter>
   </defs>
@@ -96,7 +96,7 @@
 <div class="container">
   <header class="sidebar">
     <div>
-      <h1 class="distort-target" data-threshold="20">Sella Archive</h1>
+      <h1 class="distort-target" data-threshold="20">archive</h1>
       <nav>
         <ul>
           <li><a href="#" class="distort-target active" data-threshold="15">최신 작업</a></li>
@@ -146,7 +146,6 @@
   resize();
 
   function initTextPhysics() {
-    // '.distort-target' 클래스가 붙은 모든 요소를 가져옴 (메뉴, 로고, 본문 전부 포함)
     const targets = document.querySelectorAll('.distort-target');
     let filterIndex = 0;
 
@@ -190,8 +189,8 @@
 
               letterNodes.push({
                 dom: span, body: body, startX: startX, startY: startY,
-                displaceNode: filterClone.querySelector('.displace'),
-                turbNode: filterClone.querySelector('.turb')
+                displaceNode: filterClone.querySelector('.displace')
+                // 💡 최적화: turbNode(노이즈 발생기)는 더 이상 프레임마다 제어하지 않음
               });
 
               Composite.add(engine.world, body);
@@ -208,8 +207,9 @@
     Composite.add(engine.world, floor);
   }
 
+  // 💡 최적화: 빗방울 개수를 기기 성능에 맞춰 다이어트 (시각적 밀도는 유지)
   const rainDrops = [];
-  const MAX_RAIN_COUNT = isMobile ? 150 : 400; 
+  const MAX_RAIN_COUNT = isMobile ? 80 : 150; 
 
   function spawnRain() {
     if (rainDrops.length > MAX_RAIN_COUNT) {
@@ -218,7 +218,6 @@
     }
 
     const scrollY = window.scrollY;
-    // 메뉴 바 쪽(왼쪽)에도 비가 쏟아지게 전체 너비 활용
     const drop = Bodies.rectangle(Math.random() * document.body.scrollWidth, scrollY - 20, 6, 6, {
       restitution: 0, friction: 1.0, frictionStatic: 10.0, density: 0.05, label: 'rain'
     });
@@ -241,9 +240,9 @@
           if (obj) {
             block.damage += 1; 
             
-            let currentDistortion = Math.min(block.damage * 0.3, 12);
+            // 💡 최적화: scale(찢어지는 정도)만 조절하여 매우 빠르고 가벼워짐
+            let currentDistortion = Math.min(block.damage * 0.4, 15);
             obj.displaceNode.setAttribute('scale', currentDistortion);
-            obj.turbNode.setAttribute('baseFrequency', `0.015 ${0.015 + currentDistortion * 0.001}`);
 
             if (block.damage > block.threshold) {
               collapseTextBlock(block);
@@ -257,7 +256,7 @@
 
   function collapseTextBlock(block) {
     block.isCollapsed = true;
-    let finalDistortion = Math.min(block.damage * 0.5, 20);
+    let finalDistortion = Math.min(block.damage * 0.6, 25);
 
     block.letters.forEach((obj, index) => {
       obj.displaceNode.setAttribute('scale', finalDistortion);
@@ -280,9 +279,9 @@
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
 
-    if (Math.random() < 0.6) spawnRain();
-    if (Math.random() < 0.6) spawnRain();
-    if (Math.random() < 0.6) spawnRain();
+    // 💡 최적화: 무리한 생성 호출 대신 확률을 조절
+    if (Math.random() < 0.4) spawnRain();
+    if (Math.random() < 0.4) spawnRain();
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
     ctx.font = "bold 10px serif"; 
