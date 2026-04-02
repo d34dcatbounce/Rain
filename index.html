@@ -3,17 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Infinite Physics Rain - Optimization</title>
+<title>Avalanche Rain Typography</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
   :root {
     --bg-color: #f4f4f0;
     --text-color: #111111;
+    --font-main: 'Pretendard', -apple-system, sans-serif;
   }
-  body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: sans-serif; overflow: hidden; }
+  body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  
   #rainCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
-  .physics-letter { display: inline-block; white-space: pre; position: relative; font-size: 3rem; font-weight: 300; transition: filter 0.1s; transform-origin: center; }
-  .container { padding: 80px 40px; position: relative; z-index: 10; pointer-events: none; }
+  
+  .physics-letter { display: inline-block; white-space: pre; position: relative; font-size: clamp(2rem, 6vw, 4rem); font-weight: 200; transition: filter 0.1s; transform-origin: center; transform: translate(0,0) rotate(0); }
+  
+  .container { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; width: 100%; position: relative; z-index: 10; text-align: center; }
+  
+  .physics-target { margin: 10px 0; max-width: 80%; }
 </style>
 </head>
 <body>
@@ -30,14 +36,17 @@
 <canvas id="rainCanvas"></canvas>
 
 <div class="container">
-  <h1 class="physics-target">기억은 빗물에 씻겨</h1>
-  <p class="physics-target">오래된 문장부터 하나씩 바닥으로 무너져 내린다.</p>
+  <h1 class="physics-target">무너지는 문장들</h1>
+  <p class="physics-target">쏟아지는 빗속에서 의미의 뼈대는 속절없이 주저앉는다.</p>
+  <p class="physics-target">우수수, 투둑, 바닥으로 추락하는 기억의 파편들.</p>
 </div>
 
 <script>
-  const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
+  const { Engine, Bodies, Composite, Events, Body } = Matter;
   const engine = Engine.create();
-  engine.world.gravity.y = 0.4; // 중력을 살짝 가볍게
+  
+  // 💡 [최적화 1] 중력 강화 (비와 글자가 더 빠르고 무겁게 떨어지도록)
+  engine.world.gravity.y = 0.8; 
 
   const canvas = document.getElementById('rainCanvas');
   const ctx = canvas.getContext('2d');
@@ -46,8 +55,10 @@
   let height = canvas.height = window.innerHeight;
 
   const letterObjects = [];
-  const rainDrops = []; // 빗방울 객체들을 담는 큐(Queue)
-  const MAX_RAIN_COUNT = 250; // 화면에 동시에 존재할 수 있는 최대 빗방울 수
+  const rainDrops = []; 
+  
+  // 💡 [최적화 2] 비의 밀도 증가 (화면에 동시에 존재하는 빗방울 최대 개수 상향)
+  const MAX_RAIN_COUNT = width < 768 ? 200 : 400; 
 
   // 1. 텍스트 물리 객체화
   function initTextPhysics() {
@@ -71,11 +82,12 @@
           span.style.filter = `url(#${filterId})`;
 
           const rect = span.getBoundingClientRect();
+          // 글자 크기를 살짝 줄여서 충돌 영역을 더 정밀하게 (우수수 느낌 증가)
           const body = Bodies.rectangle(
             rect.left + rect.width / 2, 
             rect.top + rect.height / 2, 
-            rect.width, rect.height, 
-            { isStatic: true, friction: 0.6, label: 'letter' }
+            rect.width * 0.9, rect.height * 0.9, 
+            { isStatic: true, friction: 0.7, label: 'letter', density: 0.1 }
           );
 
           letterObjects.push({
@@ -93,15 +105,18 @@
 
   // 2. 빗방울 생성 및 수명 관리
   function spawnRain() {
-    // 💡 핵심 최적화: 최대 개수를 넘어가면 가장 오래된 비(배열의 첫 번째)부터 제거
+    // 메모리 순환 최적화 (가장 오래된 비 삭제)
     if (rainDrops.length >= MAX_RAIN_COUNT) {
-      const oldestDrop = rainDrops.shift(); // 배열에서 빼고
-      Composite.remove(engine.world, oldestDrop); // 물리 세계에서 지우기
+      const oldestDrop = rainDrops.shift();
+      Composite.remove(engine.world, oldestDrop);
     }
 
-    const drop = Bodies.circle(Math.random() * width, -20, 5, {
-      friction: 0.5, density: 0.01, label: 'rain',
-      render: { opacity: 1 } // 수명에 따라 투명도를 조절하기 위한 커스텀 속성
+    // 비가 화면 전체 너비에서 쏟아지도록
+    const x = Math.random() * width;
+    
+    // 💡 [최적화 3] 빗방울 강화 (탄성을 줄여 잘 끈적하게 달라붙고 쌓이게)
+    const drop = Bodies.circle(x, -20, Math.random() < 0.1 ? 7 : 5, {
+      friction: 0.6, density: 0.08, restitution: 0.05, label: 'rain'
     });
 
     Composite.add(engine.world, drop);
@@ -119,8 +134,14 @@
         const obj = letterObjects.find(o => o.body === letterBody);
         if (obj) {
           obj.hits += 1;
-          obj.displaceNode.setAttribute('scale', Math.min(obj.hits * 1.5, 25));
-          if (obj.hits > 12) Body.setStatic(obj.body, false); // 12번 맞으면 추락
+          obj.displaceNode.setAttribute('scale', Math.min(obj.hits * 2.5, 30));
+          
+          // 💡 [핵심] 임계점 대폭 하향: 비를 3번만 맞으면 고정이 풀려 추락함 ("우수수" 연출)
+          if (obj.hits >= 3) {
+            Body.setStatic(obj.body, false);
+            // 약간의 랜덤한 회전력을 주어 떨어질 때 더 극적으로
+            Body.setAngularVelocity(obj.body, (Math.random() - 0.5) * 0.1); 
+          }
         }
       }
     });
@@ -131,18 +152,24 @@
     Engine.update(engine, 1000 / 60);
     ctx.clearRect(0, 0, width, height);
 
-    // 일정 확률로 비 생성
-    if (Math.random() < 0.5) spawnRain();
+    // 💡 [최적화 4] 비 생성 빈도 증가: 한 프레임에 여러 개를 생성해 폭우 연출
+    if (Math.random() < 0.8) spawnRain();
+    if (Math.random() < 0.8) spawnRain();
+    if (Math.random() < 0.8) spawnRain();
 
     // 빗방울 렌더링
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.font = "14px serif";
     ctx.textAlign = "center";
 
     rainDrops.forEach((drop, index) => {
-      // 바닥에 가까워질수록 혹은 오래될수록 투명도를 낮추는 연출 (선택 사항)
-      const opacity = index / rainDrops.length; // 큐의 순서대로 투명도 차별화
+      // 오래될수록 살짝 투명하게
+      const opacity = Math.min(index / (MAX_RAIN_COUNT * 0.8), 1.0);
       ctx.globalAlpha = opacity;
+      
+      // 비 크기에 따라 다르게 그리기 (선택 사항)
+      const size = drop.circleRadius;
+      ctx.font = `${size * 2.5}px serif`;
       ctx.fillText("비", drop.position.x, drop.position.y);
     });
     ctx.globalAlpha = 1.0;
@@ -153,6 +180,7 @@
         const dX = obj.body.position.x - obj.startX;
         const dY = obj.body.position.y - obj.startY;
         const angle = obj.body.angle * (180 / Math.PI);
+        // rotate를 더 극적으로 주기 위해 transform 적용
         obj.dom.style.transform = `translate(${dX}px, ${dY}px) rotate(${angle}deg)`;
       }
     });
@@ -160,11 +188,13 @@
     requestAnimationFrame(animate);
   }
 
+  // 화면 크기 조정 처리
   window.addEventListener('resize', () => {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
   });
 
+  // 초기화 및 실행
   setTimeout(() => {
     initTextPhysics();
     animate();
