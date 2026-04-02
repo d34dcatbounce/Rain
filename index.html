@@ -3,34 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Rain Typography - Fixed Layout</title>
+<title>Accumulating Rain Typography</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
-  :root {
-    --bg-color: #f4f4f0;
-    --text-color: #111111;
-    --font-main: 'Pretendard', -apple-system, sans-serif;
-  }
-
+  :root { --bg-color: #f4f4f0; --text-color: #111111; --font-main: 'Pretendard', -apple-system, sans-serif; }
   body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-main); overflow: hidden; -webkit-font-smoothing: antialiased; }
-
+  
   #rainCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
-
-  .container { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; width: 100%; position: relative; z-index: 10; text-align: center; padding: 0 10vw; box-sizing: border-box; }
-
-  .text-block { position: relative; width: 100%; margin: 15px 0; outline: none; }
-
-  /* 💡 수정됨: absolute를 relative로 변경하여 정상적으로 문장 배열이 되도록 복구 */
-  .physics-letter { 
-    display: inline-block; 
-    white-space: pre; 
-    position: relative; 
-    font-size: clamp(2rem, 5vw, 3.5rem); 
-    font-weight: 300; 
-    transition: filter 0.1s, transform 0.05s linear; 
-    transform-origin: center center; 
-  }
-
+  
+  .container { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; width: 100%; position: relative; z-index: 10; text-align: center; padding: 0 5vw; box-sizing: border-box; }
+  
+  /* 텍스트 간격을 조금 좁혀서 양이 많아 보이게 조정 */
+  .text-block { position: relative; width: 100%; margin: 8px 0; outline: none; }
+  
+  .physics-letter { display: inline-block; white-space: pre; position: relative; font-size: clamp(1.5rem, 3.5vw, 2.5rem); font-weight: 300; transition: filter 0.1s, transform 0.05s linear; transform-origin: center center; }
+  
   .falling { transition: filter 0.1s, transform 0.05s linear, opacity 1.5s ease-out; opacity: 0; }
 </style>
 </head>
@@ -48,15 +35,22 @@
 <canvas id="rainCanvas"></canvas>
 
 <div class="container">
-  <div class="text-block physics-target" data-threshold="8">모든 문장들은 비를 맞고 녹아내린다</div>
-  <div class="text-block physics-target" data-threshold="12">활자는 물리적 질량을 가지고 주저앉는다</div>
-  <div class="text-block physics-target" data-threshold="6">의미의 파편들</div>
+  <div class="text-block physics-target" data-threshold="40">모든 문장들은 비를 맞고 녹아내린다</div>
+  <div class="text-block physics-target" data-threshold="50">활자는 물리적 질량을 가지고 주저앉으며</div>
+  <div class="text-block physics-target" data-threshold="60">견고해 보이던 진실들도 결국 흐릿해진다</div>
+  <div class="text-block physics-target" data-threshold="45">기억의 무게를 이기지 못한 단어들은</div>
+  <div class="text-block physics-target" data-threshold="55">마침내 중력의 법칙에 순응하며 흩어지고</div>
+  <div class="text-block physics-target" data-threshold="70">우리가 믿었던 텍스트의 영속성은</div>
+  <div class="text-block physics-target" data-threshold="35">이렇게 한낱 물방울 앞에서 허물어지는가</div>
+  <div class="text-block physics-target" data-threshold="40">결국 남는 것은</div>
+  <div class="text-block physics-target" data-threshold="30">의미 잃은 파편들뿐이다</div>
 </div>
 
 <script>
   const { Engine, Bodies, Composite, Events, Body } = Matter;
   const engine = Engine.create();
-  engine.world.gravity.y = 0.6;
+  
+  engine.world.gravity.y = 0.8;
 
   const canvas = document.getElementById('rainCanvas');
   const ctx = canvas.getContext('2d');
@@ -71,7 +65,6 @@
     height = canvas.height = window.innerHeight;
   });
 
-  // 1. 텍스트를 개별 <span>으로 쪼개고 물리적 '블록'으로 만들기
   function initTextPhysics() {
     const targets = document.querySelectorAll('.physics-target');
     let filterIndex = 0;
@@ -81,7 +74,7 @@
       target.innerHTML = ''; 
       
       const chars = text.split('');
-      const threshold = parseInt(target.getAttribute('data-threshold')) || 10;
+      const threshold = parseInt(target.getAttribute('data-threshold')) || 40;
       const letterNodes = [];
 
       chars.forEach((char) => {
@@ -97,21 +90,17 @@
           filterDefs.appendChild(filterClone);
           span.style.filter = `url(#${filterId})`;
 
-          // 브라우저가 예쁘게 정렬해준 글자의 원래 위치를 측정
           const rect = span.getBoundingClientRect();
           const startX = rect.left + rect.width / 2;
           const startY = rect.top + rect.height / 2;
           
           const body = Bodies.rectangle(
             startX, startY, rect.width, rect.height, 
-            { isStatic: true, restitution: 0.1, friction: 0.5, label: 'letter' }
+            { isStatic: true, restitution: 0, friction: 1.0, label: 'letter' }
           );
 
           letterNodes.push({
-            dom: span,
-            body: body,
-            startX: startX, // 💡 수정됨: 초기 위치를 안전하게 저장
-            startY: startY, // 💡 수정됨: 초기 위치를 안전하게 저장
+            dom: span, body: body, startX: startX, startY: startY,
             displaceNode: filterClone.querySelector('.displace')
           });
 
@@ -120,10 +109,7 @@
       });
 
       textBlocks.push({
-        letters: letterNodes,
-        damage: 0,
-        threshold: threshold, 
-        isCollapsed: false
+        letters: letterNodes, damage: 0, threshold: threshold, isCollapsed: false
       });
     });
 
@@ -131,22 +117,29 @@
     Composite.add(engine.world, floor);
   }
 
-  // 2. 비 내리기
   const rainDrops = [];
-  const MAX_RAIN_COUNT = 150; 
+  // 💡 비 입자가 작아진 만큼 화면에 동시에 존재할 수 있는 개수를 600개로 대폭 늘렸습니다.
+  const MAX_RAIN_COUNT = 600; 
 
   function spawnRain() {
-    if (rainDrops.length > MAX_RAIN_COUNT) return;
+    if (rainDrops.length > MAX_RAIN_COUNT) {
+      const oldest = rainDrops.shift();
+      Composite.remove(engine.world, oldest);
+    }
 
-    const drop = Bodies.circle(Math.random() * width, -20, 5, {
-      restitution: 0.1, friction: 0.8, label: 'rain'
+    // 💡 빗방울 크기를 10x10에서 6x6으로 확 줄였습니다.
+    const drop = Bodies.rectangle(Math.random() * width, -20, 6, 6, {
+      restitution: 0,       
+      friction: 1.0,        
+      frictionStatic: 10.0, 
+      density: 0.05,
+      label: 'rain'
     });
 
     Composite.add(engine.world, drop);
     rainDrops.push(drop);
   }
 
-  // 3. 충돌 감지
   Events.on(engine, 'collisionStart', function(event) {
     event.pairs.forEach(pair => {
       let letterBody = null;
@@ -161,7 +154,8 @@
           if (obj) {
             block.damage += 1; 
             
-            let currentDistortion = Math.min(block.damage * 0.8, 15);
+            // 빗방울이 작아져서 데미지가 천천히 쌓이므로 수치를 약간 조절했습니다
+            let currentDistortion = Math.min(block.damage * 0.3, 12);
             obj.displaceNode.setAttribute('scale', currentDistortion);
 
             if (block.damage > block.threshold) {
@@ -174,10 +168,9 @@
     });
   });
 
-  // 4. 문장 무너뜨리기
   function collapseTextBlock(block) {
     block.isCollapsed = true;
-    let finalDistortion = Math.min(block.damage * 1.2, 25);
+    let finalDistortion = Math.min(block.damage * 0.5, 20);
 
     block.letters.forEach((obj, index) => {
       obj.displaceNode.setAttribute('scale', finalDistortion);
@@ -185,28 +178,37 @@
       setTimeout(() => {
         Body.setStatic(obj.body, false);
         Body.applyForce(obj.body, obj.body.position, {
-          x: (Math.random() - 0.5) * 0.05, 
-          y: Math.random() * 0.02
+          x: (Math.random() - 0.5) * 0.03, 
+          y: Math.random() * 0.01
         });
         obj.dom.classList.add('falling');
-      }, index * 20); // 글자가 왼쪽부터 오른쪽으로 순차적으로 타라락 떨어짐
+      }, index * 20); 
     });
   }
 
-  // 5. 애니메이션 루프
   function animate() {
     Engine.update(engine, 1000 / 60);
     ctx.clearRect(0, 0, width, height);
 
-    if (Math.random() < 0.2) spawnRain();
+    // 💡 입자가 작아진 만큼 폭우처럼 쏟아지도록 생성 확률을 높였습니다.
+    if (Math.random() < 0.6) spawnRain();
+    if (Math.random() < 0.6) spawnRain();
+    if (Math.random() < 0.6) spawnRain();
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; 
+    // 💡 캔버스에 그리는 '비' 폰트 크기도 16px에서 10px로 작게 줄였습니다.
+    ctx.font = "bold 10px serif"; 
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
     for (let i = rainDrops.length - 1; i >= 0; i--) {
       const drop = rainDrops[i];
       
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.font = "bold 20px serif"; 
-      ctx.textAlign = "center";
-      ctx.fillText("비", drop.position.x, drop.position.y);
+      ctx.save();
+      ctx.translate(drop.position.x, drop.position.y);
+      ctx.rotate(drop.angle); 
+      ctx.fillText("비", 0, 0);
+      ctx.restore();
 
       if (drop.position.y > height - 10 && Math.random() < 0.01) {
         Composite.remove(engine.world, drop);
@@ -214,7 +216,6 @@
       }
     }
 
-    // 💡 수정됨: 매 프레임 좌표 재측정으로 인한 버그 제거. 오직 수학 계산만!
     textBlocks.forEach(block => {
       block.letters.forEach(obj => {
         if (!obj.body.isStatic) {
@@ -230,12 +231,10 @@
     requestAnimationFrame(animate);
   }
 
-  // 폰트 렌더링 후 좌표를 재기 위해 약간의 딜레이
   setTimeout(() => {
     initTextPhysics();
     animate();
   }, 300); 
-
 </script>
 </body>
 </html>
