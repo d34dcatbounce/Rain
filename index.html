@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mobile Optimized - Rain Distortion</title>
+<style>
+  :root {
+    --bg-color: #f4f4f0;
+    --text-color: #111111;
+    --font-main: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #rainCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .distort-target {
+    filter: url(#distortionFilter);
+    display: inline-block;
+    /* 모바일에서 텍스트 렌더링 최적화 */
+    transform: translateZ(0); 
+  }
+
+  .container {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* --- 데스크탑 레이아웃 --- */
+  header.sidebar {
+    width: 250px;
+    padding: 40px;
+    position: fixed;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 2rem 0;
+    letter-spacing: -0.02em;
+  }
+
+  nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  nav li { margin-bottom: 1rem; }
+  
+  nav a {
+    text-decoration: none;
+    color: #888;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+
+  nav a:hover, nav a.active { color: var(--text-color); }
+
+  main.content {
+    margin-left: 250px;
+    padding: 80px 10vw 120px 40px;
+    max-width: 1200px;
+    box-sizing: border-box;
+  }
+
+  /* 유연한 타이포그래피 (clamp 활용) */
+  .content article { margin-bottom: 6rem; }
+  
+  .content h2 {
+    /* 최소 2rem, 화면크기에 따라 반응, 최대 3.5rem */
+    font-size: clamp(2rem, 5vw, 3.5rem); 
+    font-weight: 300;
+    line-height: 1.3;
+    margin: 0 0 1.5rem 0;
+    letter-spacing: -0.03em;
+    word-break: keep-all;
+  }
+
+  .content p {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: #333;
+    max-width: 650px;
+    margin-bottom: 1.5rem;
+    text-align: justify;
+    word-break: keep-all;
+  }
+
+  .footer-info {
+    font-size: 0.8rem; 
+    color: #999;
+  }
+
+  /* --- 모바일 최적화 레이아웃 --- */
+  @media (max-width: 768px) {
+    .container {
+      flex-direction: column;
+    }
+    
+    header.sidebar {
+      width: 100%;
+      height: auto;
+      position: relative; /* 고정 해제 */
+      padding: 30px 20px 20px 20px;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header h1 {
+      margin: 0 0 1rem 0;
+    }
+
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px; /* 가로로 메뉴 나열 */
+    }
+
+    nav li { margin-bottom: 0; }
+    
+    .footer-info { display: none; /* 모바일 상단에선 숨김 처리 */ }
+
+    main.content {
+      margin-left: 0;
+      padding: 0 20px 80px 20px;
+    }
+    
+    .content article { margin-bottom: 4rem; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position: absolute;">
+  <filter id="distortionFilter">
+    <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" result="noise" id="turbulence" />
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" id="displacement" />
+  </filter>
+</svg>
+
+<canvas id="rainCanvas"></canvas>
+
+<div class="container">
+  <header class="sidebar">
+    <div>
+      <h1 class="distort-target">프로젝트 아카이브</h1>
+      <nav>
+        <ul>
+          <li><a href="#" class="active">최신 작업</a></li>
+          <li><a href="#">시각 실험</a></li>
+          <li><a href="#">텍스트와 조형</a></li>
+          <li><a href="#">정보</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="footer-info">© 2026 Typography</div>
+  </header>
+
+  <main class="content">
+    <article>
+      <h2 class="distort-target">형태가 없는 것들을<br>위한 임시의 공간</h2>
+      <p>의미는 고정되어 있지 않으며, 읽히는 순간의 맥락에 따라 유동적으로 변화한다. 이 프로젝트는 활자가 가진 시각적 형태가 어떻게 그 안에 담긴 내용의 무게를 변형시키는지 탐구한다.</p>
+      <p>문장들은 완결된 선언이 아니라, 끊임없이 흔들리고 흩어지는 과정 자체를 보여주는 매개체로 작동한다. 우리는 빈 공간에 무작위로 배열된 글자들을 통해 새로운 서사를 발견한다.</p>
+    </article>
+
+    <article>
+      <h2 class="distort-target">조용한 붕괴와<br>재구성의 기록</h2>
+      <p>디자인은 때로 무언가를 지우고 감추는 행위에서 시작된다. 여백은 단순히 비어있는 곳이 아니라, 시선이 머물고 호흡이 교차하는 밀도 높은 영역이다.</p>
+      <p>그것은 마치 물에 젖은 종이 위로 번져나가는 잉크처럼, 의도와 통제를 벗어난 곳에서 피어나는 미학적 순간들을 포착하려는 시도이다.</p>
+    </article>
+  </main>
+</div>
+
+<script>
+  const canvas = document.getElementById('rainCanvas');
+  const ctx = canvas.getContext('2d');
+  const turbulence = document.getElementById('turbulence');
+  const displacement = document.getElementById('displacement');
+  const distortTargets = document.querySelectorAll('.distort-target');
+
+  let width, height;
+  let drops = [];
+  let currentDistortion = 0;
+  let targetDistortion = 0;
+  let isMobile = false;
+
+  // 창 크기 변경 시 캔버스 및 파티클 재설정
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    isMobile = width <= 768;
+    
+    initDrops(); // 화면 크기에 맞춰 빗방울 개수 재조정
+  }
+
+  // 모바일 성능을 고려한 빗방울 생성 로직
+  function initDrops() {
+    drops = [];
+    // 데스크탑은 150개, 모바일은 성능을 위해 60개로 제한
+    const maxDrops = isMobile ? 60 : 150; 
+
+    for(let i = 0; i < maxDrops; i++) {
+      drops.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        speed: (isMobile ? 2 : 3) + Math.random() * 4,
+        size: (isMobile ? 10 : 8) + Math.random() * 8, 
+        opacity: 0.1 + Math.random() * 0.4
+      });
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    
+    currentDistortion += (targetDistortion - currentDistortion) * 0.15;
+    targetDistortion *= 0.92; 
+
+    // 모바일에서는 최대 왜곡 수치 및 노이즈 연산값을 약간 낮춰 부하 방지
+    let currentScale = currentDistortion;
+    if (isMobile && currentScale > 15) currentScale = 15; 
+    
+    displacement.setAttribute('scale', currentScale);
+    turbulence.setAttribute('baseFrequency', `0.015 ${0.015 + currentScale * 0.0005}`);
+
+    // 화면에 보이는 요소들의 현재 좌표 수집
+    const targetRects = Array.from(distortTargets).map(el => el.getBoundingClientRect());
+
+    ctx.textAlign = "center";
+
+    drops.forEach(drop => {
+      ctx.fillStyle = `rgba(0, 0, 0, ${drop.opacity})`;
+      ctx.font = `${drop.size}px serif`;
+      ctx.fillText("비", drop.x, drop.y);
+
+      drop.y += drop.speed;
+
+      for(let i = 0; i < targetRects.length; i++) {
+        const rect = targetRects[i];
+        
+        // 화면 밖에 있는 요소는 충돌 계산에서 제외 (성능 최적화)
+        if (rect.bottom < 0 || rect.top > height) continue;
+
+        if (
+          drop.y > rect.top - 10 && 
+          drop.y < rect.bottom + 10 && 
+          drop.x > rect.left - 10 && 
+          drop.x < rect.right + 10
+        ) {
+          // 모바일은 충돌 시 올라가는 수치도 조금 부드럽게 조정
+          targetDistortion += isMobile ? 0.5 : 0.8; 
+          break; 
+        }
+      }
+
+      if(drop.y > height) {
+        drop.y = -20;
+        drop.x = Math.random() * width;
+      }
+    });
+
+    if (targetDistortion > (isMobile ? 15 : 25)) {
+      targetDistortion = isMobile ? 15 : 25;
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+</body>
+</html>
