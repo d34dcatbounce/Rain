@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mobile Optimized - Physics Rain Distortion</title>
+<title>Sella - Total Collapse Archive</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
   :root {
@@ -13,60 +13,49 @@
   }
 
   body {
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: var(--font-main);
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 0;
+    background-color: var(--bg-color); color: var(--text-color);
+    font-family: var(--font-main); overflow-x: hidden; -webkit-font-smoothing: antialiased;
   }
 
   #rainCanvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 50;
-    pointer-events: none;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 50; pointer-events: none;
   }
 
-  /* 💡 물리 효과를 받을 개별 글자 스타일 (기존 코드에 추가) */
   .physics-letter {
-    display: inline-block;
-    position: relative; /* 글자 뭉침 방지의 핵심 */
+    display: inline-block; position: relative; 
     transition: filter 0.1s, transform 0.05s linear;
-    transform-origin: center center;
-    /* 모바일에서 텍스트 렌더링 최적화 */
-    transform: translateZ(0); 
+    transform-origin: center center; transform: translateZ(0); 
   }
 
-  /* 글자가 무너질 때 서서히 사라지는 효과 */
-  .falling {
-    transition: filter 0.1s, transform 0.05s linear, opacity 1.5s ease-out;
-    opacity: 0;
-  }
+  .falling { transition: filter 0.1s, transform 0.05s linear; }
 
+  /* 💡 수정됨: 물리 엔진과 스크롤이 완벽하게 호환되도록 flex 레이아웃으로 변경 */
   .container {
-    display: flex;
-    min-height: 100vh;
-    position: relative;
-    z-index: 10;
+    display: flex; min-height: 100vh; position: relative; z-index: 10;
+    align-items: flex-start; /* 사이드바가 sticky로 작동하도록 설정 */
   }
 
-  /* --- 데스크탑 레이아웃 (기존 동일) --- */
+  /* --- 데스크탑 레이아웃 --- */
   header.sidebar {
-    width: 250px; padding: 40px; position: fixed; height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;
+    width: 250px; padding: 40px; 
+    position: sticky; top: 0; /* fixed에서 sticky로 변경 (물리 추락 시 버그 방지) */
+    height: 100vh; box-sizing: border-box; flex-shrink: 0;
+    display: flex; flex-direction: column; justify-content: space-between;
   }
+  
   header h1 { font-size: 1.2rem; font-weight: 600; margin: 0 0 2rem 0; letter-spacing: -0.02em; }
+  
   nav ul { list-style: none; padding: 0; margin: 0; }
   nav li { margin-bottom: 1rem; }
-  nav a { text-decoration: none; color: #888; font-size: 0.95rem; transition: color 0.2s; }
+  /* 메뉴 탭의 기본 스타일 유지 */
+  nav a { text-decoration: none; color: #888; font-size: 0.95rem; transition: color 0.2s; display: inline-block; }
   nav a:hover, nav a.active { color: var(--text-color); }
 
+  /* 💡 수정됨: 사이드바가 flex 아이템이 되었으므로 margin-left 제거 */
   main.content {
-    margin-left: 250px; padding: 80px 10vw 120px 40px; max-width: 1200px; box-sizing: border-box;
+    flex-grow: 1; padding: 80px 10vw 120px 40px; max-width: 1200px; box-sizing: border-box;
   }
   .content article { margin-bottom: 6rem; }
   .content h2 {
@@ -75,9 +64,10 @@
   .content p {
     font-size: 1.05rem; line-height: 1.7; color: #333; max-width: 650px; margin-bottom: 1.5rem; text-align: justify; word-break: keep-all;
   }
+  
   .footer-info { font-size: 0.8rem; color: #999; }
 
-  /* --- 모바일 최적화 레이아웃 (기존 동일) --- */
+  /* --- 모바일 최적화 레이아웃 --- */
   @media (max-width: 768px) {
     .container { flex-direction: column; }
     header.sidebar { width: 100%; height: auto; position: relative; padding: 30px 20px 20px 20px; flex-direction: column; gap: 20px; }
@@ -85,7 +75,7 @@
     nav ul { display: flex; flex-wrap: wrap; gap: 15px; }
     nav li { margin-bottom: 0; }
     .footer-info { display: none; }
-    main.content { margin-left: 0; padding: 0 20px 80px 20px; }
+    main.content { padding: 0 20px 80px 20px; }
     .content article { margin-bottom: 4rem; }
   }
 </style>
@@ -106,17 +96,17 @@
 <div class="container">
   <header class="sidebar">
     <div>
-      <h1 class="distort-target" data-threshold="30">프로젝트 아카이브</h1>
+      <h1 class="distort-target" data-threshold="20">Sella Archive</h1>
       <nav>
         <ul>
-          <li><a href="#" class="active">최신 작업</a></li>
-          <li><a href="#">시각 실험</a></li>
-          <li><a href="#">텍스트와 조형</a></li>
-          <li><a href="#">정보</a></li>
+          <li><a href="#" class="distort-target active" data-threshold="15">최신 작업</a></li>
+          <li><a href="#" class="distort-target" data-threshold="15">시각 실험</a></li>
+          <li><a href="#" class="distort-target" data-threshold="15">텍스트와 조형</a></li>
+          <li><a href="#" class="distort-target" data-threshold="15">정보</a></li>
         </ul>
       </nav>
     </div>
-    <div class="footer-info">© 2026 Typography</div>
+    <div class="footer-info distort-target" data-threshold="10">© 2026 Typography</div>
   </header>
 
   <main class="content">
@@ -137,7 +127,7 @@
 <script>
   const { Engine, Bodies, Composite, Events, Body } = Matter;
   const engine = Engine.create();
-  engine.world.gravity.y = 0.8; // 비가 무겁게 쌓이도록 중력 설정
+  engine.world.gravity.y = 0.8; 
 
   const canvas = document.getElementById('rainCanvas');
   const ctx = canvas.getContext('2d');
@@ -155,8 +145,8 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // 1. 텍스트 블록 쪼개기 및 물리 바디 생성
   function initTextPhysics() {
+    // '.distort-target' 클래스가 붙은 모든 요소를 가져옴 (메뉴, 로고, 본문 전부 포함)
     const targets = document.querySelectorAll('.distort-target');
     let filterIndex = 0;
 
@@ -175,7 +165,6 @@
           for (let char of part) {
             const span = document.createElement('span');
             span.className = 'physics-letter';
-            // 띄어쓰기 렌더링 유지
             if (char === ' ') {
               span.innerHTML = '&nbsp;';
             } else {
@@ -190,12 +179,10 @@
               filterDefs.appendChild(filterClone);
               span.style.filter = `url(#${filterId})`;
 
-              // 현재 문서 내의 절대 좌표 측정 (스크롤 고려)
               const rect = span.getBoundingClientRect();
               const startX = rect.left + rect.width / 2 + window.scrollX;
               const startY = rect.top + rect.height / 2 + window.scrollY;
               
-              // 💡 튕기지 않고 단단하게 쌓이는 마찰력 설정
               const body = Bodies.rectangle(
                 startX, startY, rect.width, rect.height, 
                 { isStatic: true, restitution: 0, friction: 1.0, label: 'letter' }
@@ -216,15 +203,13 @@
       textBlocks.push({ letters: letterNodes, damage: 0, threshold: threshold, isCollapsed: false });
     });
 
-    // 화면 바닥 (페이지 전체 높이 기준)
     const pageHeight = document.body.scrollHeight;
-    const floor = Bodies.rectangle(width / 2, pageHeight + 50, width * 2, 100, { isStatic: true });
+    const floor = Bodies.rectangle(width / 2, pageHeight + 20, width * 2, 100, { isStatic: true });
     Composite.add(engine.world, floor);
   }
 
-  // 2. 비 생성 (작은 빗방울로 수북하게)
   const rainDrops = [];
-  const MAX_RAIN_COUNT = isMobile ? 150 : 350; 
+  const MAX_RAIN_COUNT = isMobile ? 150 : 400; 
 
   function spawnRain() {
     if (rainDrops.length > MAX_RAIN_COUNT) {
@@ -232,8 +217,8 @@
       Composite.remove(engine.world, oldest);
     }
 
-    // 💡 화면 안 보이는 곳에서부터 쏟아지도록 스크롤 위치 고려
     const scrollY = window.scrollY;
+    // 메뉴 바 쪽(왼쪽)에도 비가 쏟아지게 전체 너비 활용
     const drop = Bodies.rectangle(Math.random() * document.body.scrollWidth, scrollY - 20, 6, 6, {
       restitution: 0, friction: 1.0, frictionStatic: 10.0, density: 0.05, label: 'rain'
     });
@@ -242,7 +227,6 @@
     rainDrops.push(drop);
   }
 
-  // 3. 충돌 계산
   Events.on(engine, 'collisionStart', function(event) {
     event.pairs.forEach(pair => {
       let letterBody = null;
@@ -257,12 +241,10 @@
           if (obj) {
             block.damage += 1; 
             
-            // 데미지가 쌓일수록 자글거림
             let currentDistortion = Math.min(block.damage * 0.3, 12);
             obj.displaceNode.setAttribute('scale', currentDistortion);
             obj.turbNode.setAttribute('baseFrequency', `0.015 ${0.015 + currentDistortion * 0.001}`);
 
-            // 💡 무너짐 (도미노 효과)
             if (block.damage > block.threshold) {
               collapseTextBlock(block);
             }
@@ -280,7 +262,6 @@
     block.letters.forEach((obj, index) => {
       obj.displaceNode.setAttribute('scale', finalDistortion);
       
-      // 순차적으로 타라락 무너지는 눈속임 효과
       setTimeout(() => {
         Body.setStatic(obj.body, false);
         Body.applyForce(obj.body, obj.body.position, {
@@ -292,19 +273,16 @@
     });
   }
 
-  // 4. 애니메이션 루프
   function animate() {
     Engine.update(engine, 1000 / 60);
     ctx.clearRect(0, 0, width, height);
 
-    // 스크롤 동기화 방어 (고정된 캔버스에 렌더링하기 위해)
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
 
-    // 비 생성
-    if (Math.random() < 0.5) spawnRain();
-    if (Math.random() < 0.5) spawnRain();
-    if (Math.random() < 0.5) spawnRain(); // 비 많이
+    if (Math.random() < 0.6) spawnRain();
+    if (Math.random() < 0.6) spawnRain();
+    if (Math.random() < 0.6) spawnRain();
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
     ctx.font = "bold 10px serif"; 
@@ -315,13 +293,12 @@
       const drop = rainDrops[i];
       
       ctx.save();
-      // 스크롤된 만큼 빼서 화면에 올바르게 그려지게 함
       ctx.translate(drop.position.x - scrollX, drop.position.y - scrollY);
       ctx.rotate(drop.angle); 
       ctx.fillText("비", 0, 0);
       ctx.restore();
 
-      if (drop.position.y > document.body.scrollHeight + 10 && Math.random() < 0.01) {
+      if (drop.position.y > document.body.scrollHeight + 10 && Math.random() < 0.001) {
         Composite.remove(engine.world, drop);
         rainDrops.splice(i, 1);
       }
@@ -342,7 +319,6 @@
     requestAnimationFrame(animate);
   }
 
-  // 폰트 로드 시간을 고려해 약간 지연 시작
   setTimeout(() => {
     initTextPhysics();
     animate();
