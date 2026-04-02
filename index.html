@@ -27,19 +27,23 @@
     display: inline-block; position: relative; 
     transition: filter 0.1s, transform 0.05s linear;
     transform-origin: center center; 
-    /* 하드웨어 가속(GPU) 강제 할당으로 렌더링 최적화 */
     transform: translateZ(0); 
     will-change: transform, filter; 
   }
 
   .falling { transition: filter 0.1s, transform 0.05s linear; }
 
+  /* 💡 메모리 최적화: 서서히 사라지는 페이드아웃 애니메이션 추가 */
+  .fade-out {
+    opacity: 0 !important;
+    transition: opacity 1.5s ease-out !important;
+  }
+
   .container {
     display: flex; min-height: 100vh; position: relative; z-index: 10;
     align-items: flex-start; 
   }
 
-  /* --- 데스크탑 레이아웃 --- */
   header.sidebar {
     width: 250px; padding: 40px; 
     position: sticky; top: 0; 
@@ -67,7 +71,6 @@
   
   .footer-info { font-size: 0.8rem; color: #999; }
 
-  /* --- 모바일 최적화 레이아웃 --- */
   @media (max-width: 768px) {
     .container { flex-direction: column; }
     header.sidebar { width: 100%; height: auto; position: relative; padding: 30px 20px 20px 20px; flex-direction: column; gap: 20px; }
@@ -138,9 +141,16 @@
   let textBlocks = [];
 
   function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+    width = window.innerWidth;
+    height = window.innerHeight;
     isMobile = width <= 768;
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.scale(dpr, dpr);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -189,8 +199,9 @@
 
               letterNodes.push({
                 dom: span, body: body, startX: startX, startY: startY,
-                displaceNode: filterClone.querySelector('.displace')
-                // 💡 최적화: turbNode(노이즈 발생기)는 더 이상 프레임마다 제어하지 않음
+                displaceNode: filterClone.querySelector('.displace'),
+                filterId: filterId,
+                isRemoved: false // 💡 삭제 여부를 확인하는 플래그
               });
 
               Composite.add(engine.world, body);
@@ -207,7 +218,6 @@
     Composite.add(engine.world, floor);
   }
 
-  // 💡 최적화: 빗방울 개수를 기기 성능에 맞춰 다이어트 (시각적 밀도는 유지)
   const rainDrops = [];
   const MAX_RAIN_COUNT = isMobile ? 80 : 150; 
 
@@ -237,10 +247,9 @@
           if (block.isCollapsed) continue;
 
           const obj = block.letters.find(o => o.body === letterBody);
-          if (obj) {
+          if (obj && !obj.isRemoved) { // 삭제된 객체는 무시
             block.damage += 1; 
             
-            // 💡 최적화: scale(찢어지는 정도)만 조절하여 매우 빠르고 가벼워짐
             let currentDistortion = Math.min(block.damage * 0.4, 15);
             obj.displaceNode.setAttribute('scale', currentDistortion);
 
@@ -259,6 +268,8 @@
     let finalDistortion = Math.min(block.damage * 0.6, 25);
 
     block.letters.forEach((obj, index) => {
+      if (obj.isRemoved) return;
+      
       obj.displaceNode.setAttribute('scale', finalDistortion);
       
       setTimeout(() => {
@@ -268,6 +279,30 @@
           y: Math.random() * 0.01
         });
         obj.dom.classList.add('falling');
+
+        // 💡 핵심 최적화: 추락 후 일정 시간(4.5초) 대기 후 삭제 프로세스 시작
+        setTimeout(() => {
+          // 1. CSS 페이드 아웃 시작
+          obj.dom.classList.add('fade-out');
+
+          setTimeout(() => {
+            // 2. 완전히 투명해지면 각종 메모리에서 영구 삭제
+            obj.isRemoved = true; 
+            
+            // 물리 엔진 삭제
+            Composite.remove(engine.world, obj.body);
+            
+            // DOM 엘리먼트 삭제
+            if (obj.dom.parentNode) obj.dom.parentNode.removeChild(obj.dom);
+            
+            // SVG 필터(메모리 하마) 삭제
+            const filterEl = document.getElementById(obj.filterId);
+            if (filterEl) filterEl.parentNode.removeChild(filterEl);
+
+          }, 1500); // 1.5초 동안 페이드 아웃
+
+        }, 4500); // 4.5초 동안 바닥에 뒹굴며 쌓이는 연출 감상
+
       }, index * 15); 
     });
   }
@@ -279,14 +314,13 @@
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
 
-    // 💡 최적화: 무리한 생성 호출 대신 확률을 조절
     if (Math.random() < 0.4) spawnRain();
     if (Math.random() < 0.4) spawnRain();
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
-    ctx.font = "bold 10px serif"; 
-    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.font = "bold 10px 'Pretendard', sans-serif"; 
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; 
 
     for (let i = rainDrops.length - 1; i >= 0; i--) {
       const drop = rainDrops[i];
@@ -297,7 +331,8 @@
       ctx.fillText("비", 0, 0);
       ctx.restore();
 
-      if (drop.position.y > document.body.scrollHeight + 10 && Math.random() < 0.001) {
+      // 바닥에 쌓이는 비의 양 조절을 위해 삭제 확률을 0.05로 살짝 올림
+      if (drop.position.y > document.body.scrollHeight + 10 && Math.random() < 0.05) {
         Composite.remove(engine.world, drop);
         rainDrops.splice(i, 1);
       }
@@ -305,6 +340,9 @@
 
     textBlocks.forEach(block => {
       block.letters.forEach(obj => {
+        // 💡 렌더링 최적화: 이미 삭제된 객체는 DOM 조작을 스킵합니다.
+        if (obj.isRemoved) return;
+
         if (!obj.body.isStatic) {
           const deltaX = obj.body.position.x - obj.startX;
           const deltaY = obj.body.position.y - obj.startY;
