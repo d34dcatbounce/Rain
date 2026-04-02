@@ -25,15 +25,12 @@
 
   .physics-letter {
     display: inline-block; position: relative; 
-    transition: filter 0.1s, transform 0.05s linear;
+    transition: filter 0.1s; 
     transform-origin: center center; 
     transform: translateZ(0); 
     will-change: transform, filter; 
   }
 
-  .falling { transition: filter 0.1s, transform 0.05s linear; }
-
-  /* 💡 메모리 최적화: 서서히 사라지는 페이드아웃 애니메이션 추가 */
   .fade-out {
     opacity: 0 !important;
     transition: opacity 1.5s ease-out !important;
@@ -45,14 +42,12 @@
   }
 
   header.sidebar {
-    width: 250px; padding: 40px; 
-    position: sticky; top: 0; 
+    width: 250px; padding: 40px; position: sticky; top: 0; 
     height: 100vh; box-sizing: border-box; flex-shrink: 0;
     display: flex; flex-direction: column; justify-content: space-between;
   }
   
   header h1 { font-size: 1.2rem; font-weight: 600; margin: 0 0 2rem 0; letter-spacing: -0.02em; }
-  
   nav ul { list-style: none; padding: 0; margin: 0; }
   nav li { margin-bottom: 1rem; }
   nav a { text-decoration: none; color: #888; font-size: 0.95rem; transition: color 0.2s; display: inline-block; }
@@ -62,12 +57,8 @@
     flex-grow: 1; padding: 80px 10vw 120px 40px; max-width: 1200px; box-sizing: border-box;
   }
   .content article { margin-bottom: 6rem; }
-  .content h2 {
-    font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 300; line-height: 1.3; margin: 0 0 1.5rem 0; letter-spacing: -0.03em; word-break: keep-all;
-  }
-  .content p {
-    font-size: 1.05rem; line-height: 1.7; color: #333; max-width: 650px; margin-bottom: 1.5rem; text-align: justify; word-break: keep-all;
-  }
+  .content h2 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 300; line-height: 1.3; margin: 0 0 1.5rem 0; letter-spacing: -0.03em; word-break: keep-all; }
+  .content p { font-size: 1.05rem; line-height: 1.7; color: #333; max-width: 650px; margin-bottom: 1.5rem; text-align: justify; word-break: keep-all; }
   
   .footer-info { font-size: 0.8rem; color: #999; }
 
@@ -85,7 +76,7 @@
 </head>
 <body>
 
-<svg width="0" height="0" style="position: absolute;">
+<svg width="0" height="0" style="position: absolute; width: 0; height: 0; overflow: hidden;">
   <defs id="filter-defs">
     <filter id="distortionFilter">
       <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="1" result="noise" />
@@ -135,11 +126,15 @@
   const canvas = document.getElementById('rainCanvas');
   const ctx = canvas.getContext('2d');
   const filterDefs = document.getElementById('filter-defs');
+  const baseFilter = document.getElementById('distortionFilter');
   
   let width, height;
   let isMobile = false;
   let textBlocks = [];
+  let activeLetters = []; // 💡 최적화: 붕괴되어 움직이는 글자만 추적하는 배열
+  const filterMap = new Map(); // 💡 최적화: 필터 재사용을 위한 Map
 
+  // 창 크기 조절 시 캔버스 스케일링
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
@@ -150,14 +145,43 @@
     canvas.height = height * dpr;
     canvas.style.width = width + 'px';
     canvas.style.height = height + 'px';
+    
+    // 리사이즈 시 컨텍스트 초기화 방지
+    ctx.setTransform(1, 0, 0, 1, 0, 0); 
     ctx.scale(dpr, dpr);
+    
+    // 캔버스 상태 사전 설정 (매 프레임 연산하지 않도록)
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.font = "bold 10px 'Pretendard', sans-serif"; 
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; 
   }
-  window.addEventListener('resize', resize);
+  
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 100);
+  });
   resize();
+
+  // 💡 최적화: 필터를 동적으로 생성하고, 동일한 왜곡률은 캐싱하여 재사용
+  function applyDistortion(obj, scale) {
+    const roundedScale = Math.round(scale * 10) / 10; // 소수점 첫째 자리까지만 관리 (약 3~40개 필터로 압축)
+    
+    if (!filterMap.has(roundedScale)) {
+      const filterId = `distort-${roundedScale}`.replace('.', '-');
+      const filterClone = baseFilter.cloneNode(true);
+      filterClone.id = filterId;
+      filterClone.querySelector('.displace').setAttribute('scale', roundedScale);
+      filterDefs.appendChild(filterClone);
+      filterMap.set(roundedScale, filterId);
+    }
+    
+    obj.dom.style.filter = `url(#${filterMap.get(roundedScale)})`;
+  }
 
   function initTextPhysics() {
     const targets = document.querySelectorAll('.distort-target');
-    let filterIndex = 0;
 
     targets.forEach((target) => {
       const htmlString = target.innerHTML;
@@ -182,26 +206,29 @@
             target.appendChild(span);
 
             if (char.trim() !== '') {
-              const filterId = `distort-${filterIndex++}`;
-              const filterClone = document.getElementById('distortionFilter').cloneNode(true);
-              filterClone.id = filterId;
-              filterDefs.appendChild(filterClone);
-              span.style.filter = `url(#${filterId})`;
-
               const rect = span.getBoundingClientRect();
               const startX = rect.left + rect.width / 2 + window.scrollX;
               const startY = rect.top + rect.height / 2 + window.scrollY;
               
+              const bodyWidth = Math.max(rect.width * 0.7, 5);
+              const bodyHeight = Math.max(rect.height * 0.7, 5);
+              
               const body = Bodies.rectangle(
-                startX, startY, rect.width, rect.height, 
-                { isStatic: true, restitution: 0, friction: 1.0, label: 'letter' }
+                startX, startY, bodyWidth, bodyHeight, 
+                { 
+                  isStatic: true, 
+                  restitution: 0.1,
+                  friction: 0.8,
+                  frictionAir: 0.02,
+                  chamfer: { radius: 2 },
+                  label: 'letter' 
+                }
               );
 
+              // 💡 DOM 구조 단순화 (더 이상 개별 displaceNode를 갖지 않음)
               letterNodes.push({
                 dom: span, body: body, startX: startX, startY: startY,
-                displaceNode: filterClone.querySelector('.displace'),
-                filterId: filterId,
-                isRemoved: false // 💡 삭제 여부를 확인하는 플래그
+                isRemoved: false 
               });
 
               Composite.add(engine.world, body);
@@ -247,11 +274,11 @@
           if (block.isCollapsed) continue;
 
           const obj = block.letters.find(o => o.body === letterBody);
-          if (obj && !obj.isRemoved) { // 삭제된 객체는 무시
+          if (obj && !obj.isRemoved) { 
             block.damage += 1; 
             
             let currentDistortion = Math.min(block.damage * 0.4, 15);
-            obj.displaceNode.setAttribute('scale', currentDistortion);
+            applyDistortion(obj, currentDistortion); // 캐싱된 필터 적용
 
             if (block.damage > block.threshold) {
               collapseTextBlock(block);
@@ -270,38 +297,26 @@
     block.letters.forEach((obj, index) => {
       if (obj.isRemoved) return;
       
-      obj.displaceNode.setAttribute('scale', finalDistortion);
+      applyDistortion(obj, finalDistortion);
       
       setTimeout(() => {
         Body.setStatic(obj.body, false);
+        activeLetters.push(obj); // 💡 애니메이션 루프에 추가
+        
         Body.applyForce(obj.body, obj.body.position, {
-          x: (Math.random() - 0.5) * 0.03, 
-          y: Math.random() * 0.01
+          x: (Math.random() - 0.5) * 0.002, 
+          y: Math.random() * 0.001
         });
-        obj.dom.classList.add('falling');
 
-        // 💡 핵심 최적화: 추락 후 일정 시간(4.5초) 대기 후 삭제 프로세스 시작
         setTimeout(() => {
-          // 1. CSS 페이드 아웃 시작
           obj.dom.classList.add('fade-out');
 
           setTimeout(() => {
-            // 2. 완전히 투명해지면 각종 메모리에서 영구 삭제
             obj.isRemoved = true; 
-            
-            // 물리 엔진 삭제
             Composite.remove(engine.world, obj.body);
-            
-            // DOM 엘리먼트 삭제
             if (obj.dom.parentNode) obj.dom.parentNode.removeChild(obj.dom);
-            
-            // SVG 필터(메모리 하마) 삭제
-            const filterEl = document.getElementById(obj.filterId);
-            if (filterEl) filterEl.parentNode.removeChild(filterEl);
-
-          }, 1500); // 1.5초 동안 페이드 아웃
-
-        }, 4500); // 4.5초 동안 바닥에 뒹굴며 쌓이는 연출 감상
+          }, 1500); 
+        }, 4500); 
 
       }, index * 15); 
     });
@@ -314,14 +329,11 @@
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
 
+    // 빗방울 생성
     if (Math.random() < 0.4) spawnRain();
     if (Math.random() < 0.4) spawnRain();
 
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-    ctx.font = "bold 10px 'Pretendard', sans-serif"; 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; 
-
+    // 빗방울 렌더링 및 가비지 컬렉션 처리
     for (let i = rainDrops.length - 1; i >= 0; i--) {
       const drop = rainDrops[i];
       
@@ -331,27 +343,27 @@
       ctx.fillText("비", 0, 0);
       ctx.restore();
 
-      // 바닥에 쌓이는 비의 양 조절을 위해 삭제 확률을 0.05로 살짝 올림
-      if (drop.position.y > document.body.scrollHeight + 10 && Math.random() < 0.05) {
+      // 💡 최적화: 확률적 제거를 없애고 화면을 확 벗어나면 즉시 삭제
+      if (drop.position.y > document.body.scrollHeight + 50) {
         Composite.remove(engine.world, drop);
         rainDrops.splice(i, 1);
       }
     }
 
-    textBlocks.forEach(block => {
-      block.letters.forEach(obj => {
-        // 💡 렌더링 최적화: 이미 삭제된 객체는 DOM 조작을 스킵합니다.
-        if (obj.isRemoved) return;
+    // 💡 최적화: 정적인 요소는 무시하고, '움직이는 상태의 글자'만 DOM 업데이트
+    for (let i = activeLetters.length - 1; i >= 0; i--) {
+      const obj = activeLetters[i];
+      if (obj.isRemoved) {
+        activeLetters.splice(i, 1); // 배열에서 완전히 삭제
+        continue;
+      }
 
-        if (!obj.body.isStatic) {
-          const deltaX = obj.body.position.x - obj.startX;
-          const deltaY = obj.body.position.y - obj.startY;
-          const angle = obj.body.angle; 
-          
-          obj.dom.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${angle}rad) translateZ(0)`;
-        }
-      });
-    });
+      const deltaX = obj.body.position.x - obj.startX;
+      const deltaY = obj.body.position.y - obj.startY;
+      const angle = obj.body.angle; 
+      
+      obj.dom.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${angle}rad) translateZ(0)`;
+    }
 
     requestAnimationFrame(animate);
   }
